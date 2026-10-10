@@ -69,6 +69,11 @@ provider id/options, payload de webhook, faixas de peerDep), Keep-a-Changelog, p
    rotas ou faixa de peerDep = MAJOR. **Âncoras de versão (errata
    2026-09-30):** `0.0.1` = camada base manual; `0.1.0` = primeiro adapter (Mercado Pago) em
    sandbox; `0.2.0` = onboarding/OAuth/Admin (primeiras migrations); um MINOR por adapter na
+
+   **Errata 2026-10-10 — ancoradouro da Fase 2b:** o `0.2.0` reservado acima para
+   onboarding/OAuth/Admin (primeiras migrations) foi consumido pela `0.1.0` — a Fase 2b
+   embarcou junto com o adapter MP na mesma release (o `0.1.0` nunca chegou ao registry;
+   número livre). `0.2.0+` = próximos MINORs (um por adapter da Fase 3 ou pós-1.0.0).
    Fase 3. **Critérios de prontidão do `1.0.0`** (além do gatilho de negócio): (1) ≥1 adapter
    com transação real completa (charge+refund); (2) auditoria do contrato público documentada;
    (3) blob `data` da session com `data_version` e política de migração de blobs antigos;
