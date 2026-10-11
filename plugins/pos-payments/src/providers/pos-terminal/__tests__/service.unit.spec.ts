@@ -1,11 +1,9 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import PosTerminalProviderService from "../service"
-import { mergeSessionData } from "../schema"
 
-const service = new PosTerminalProviderService(
-  { logger: console } as never,
-  { acquirer: "manual" }
-)
+const service = new PosTerminalProviderService({ logger: console } as never, {
+  acquirer: "manual",
+})
 
 describe("PosTerminalProviderService", () => {
   it("validateOptions falha sem acquirer", () => {
@@ -14,10 +12,16 @@ describe("PosTerminalProviderService", () => {
     ).toThrow(/acquirer/)
   })
 
-  it("validateOptions rejeita adquirente sem adapter implementado", () => {
+  it("validateOptions: mercadopago sem credencial falha no boot (CONSTRAINTS 4)", () => {
     expect(() =>
       PosTerminalProviderService.validateOptions({ acquirer: "mercadopago" })
-    ).toThrow(/manual/)
+    ).toThrow(/accessToken/)
+  })
+
+  it("validateOptions rejeita adquirente sem adapter implementado", () => {
+    expect(() =>
+      PosTerminalProviderService.validateOptions({ acquirer: "sumup" })
+    ).toThrow(/manual|sumup/)
   })
 
   it("initiatePayment é no-op e devolve id opaco público", async () => {
@@ -31,7 +35,9 @@ describe("PosTerminalProviderService", () => {
   })
 
   it("capturePayment é idempotente (mantém o captured_at original)", async () => {
-    const first = await service.capturePayment({ data: { mode: "manual" } } as never)
+    const first = await service.capturePayment({
+      data: { mode: "manual" },
+    } as never)
     const second = await service.capturePayment({ data: first.data! } as never)
     expect(second.data!["captured_at"]).toBe(first.data!["captured_at"])
     expect(second.data!["mode"]).toBe("manual")
@@ -50,48 +56,63 @@ describe("PosTerminalProviderService", () => {
   })
 
   it("getPaymentStatus mapeia o data e nunca lança", async () => {
-    expect((await service.getPaymentStatus({ data: {} })).status).toBe("pending")
-    expect((await service.getPaymentStatus({ data: { authorized_at: "t" } })).status).toBe("authorized")
-    expect((await service.getPaymentStatus({ data: { captured_at: "t" } })).status).toBe("captured")
-    expect((await service.getPaymentStatus({ data: { canceled_at: "t" } })).status).toBe("canceled")
-    expect((await service.getPaymentStatus(undefined as never)).status).toBe("pending")
+    expect((await service.getPaymentStatus({ data: {} })).status).toBe(
+      "pending"
+    )
+    expect(
+      (await service.getPaymentStatus({ data: { authorized_at: "t" } })).status
+    ).toBe("authorized")
+    expect(
+      (await service.getPaymentStatus({ data: { captured_at: "t" } })).status
+    ).toBe("captured")
+    expect(
+      (await service.getPaymentStatus({ data: { canceled_at: "t" } })).status
+    ).toBe("canceled")
+    expect((await service.getPaymentStatus(undefined as never)).status).toBe(
+      "pending"
+    )
+  })
+})
+
+describe("guard MP_POINT_TEST_MODE (T6 — boot nunca silencioso)", () => {
+  it("validateOptions: o guard NÃO isenta credenciais (CONSTRAINTS 4)", () => {
+    expect(() =>
+      PosTerminalProviderService.validateOptions({
+        acquirer: "mercadopago",
+        mpPointTestMode: true,
+      })
+    ).toThrow(/accessToken/)
+    expect(() =>
+      PosTerminalProviderService.validateOptions({
+        acquirer: "mercadopago",
+        mpPointTestMode: true,
+        accessToken: "test-token-fixture",
+      })
+    ).toThrow(/webhookSecret/)
   })
 
-  it("deletePayment limpa o estado", async () => {
-    const out = await service.deletePayment({ data: { captured_at: "t" } } as never)
-    expect(out.data).toEqual({})
-  })
-
-  it("updatePayment rejeita chave de prototype", async () => {
-    await expect(
-      service.updatePayment({
-        amount: 100,
-        currency_code: "brl",
-        data: { a: 1, ["__proto__"]: { x: 1 } },
-      } as never)
-    ).rejects.toThrow(/proibida/)
-  })
-
-  it("updatePayment ecoa o data válido", async () => {
-    const out = await service.updatePayment({
-      amount: 100,
-      currency_code: "brl",
-      data: { a: 1 },
+  it("boot com mpPointTestMode=true loga warn explícito", () => {
+    const warn = vi.fn()
+    const logger = { info: vi.fn(), warn, error: vi.fn() }
+    new PosTerminalProviderService({ logger } as never, {
+      acquirer: "mercadopago",
+      accessToken: "test-token-fixture",
+      webhookSecret: "test-webhook-secret",
+      mpPointTestMode: true,
     })
-    expect(out.data).toEqual({ a: 1 })
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("MP_POINT_TEST_MODE")
+    )
   })
 
-  it("mergeSessionData é depth-1 por own-properties", () => {
-    const merged = { ...mergeSessionData({ a: 1 }, { b: 2 }) }
-    expect(merged).toEqual({ a: 1, b: 2 })
-  })
-
-  it("getWebhookActionAndData devolve not_supported (Fase 1)", async () => {
-    const out = await service.getWebhookActionAndData({
-      data: {},
-      rawData: Buffer.from("{}"),
-      headers: {},
+  it("boot sem o guard não loga warn de teste", () => {
+    const warn = vi.fn()
+    const logger = { info: vi.fn(), warn, error: vi.fn() }
+    new PosTerminalProviderService({ logger } as never, {
+      acquirer: "mercadopago",
+      accessToken: "test-token-fixture",
+      webhookSecret: "test-webhook-secret",
     })
-    expect(out.action).toBe("not_supported")
+    expect(warn).not.toHaveBeenCalled()
   })
 })

@@ -1,0 +1,26 @@
+{
+  "$schema": "./node_modules/knip/schema.json",
+  "workspaces": {
+    ".": {
+      "entry": ["commitlint.config.js"],
+      "ignore": ["e2e/**"]
+    },
+    "plugins/pos-payments": {
+      "entry": [
+        "src/index.ts",
+        "src/api/**/*.ts",
+        "src/admin/**/*.{ts,tsx}",
+        "src/providers/**/index.ts",
+        "src/subscribers/**/*.ts",
+        "src/jobs/**/*.ts",
+        "src/modules/**/migrations/**/*.ts"
+      ],
+      "ignoreDependencies": [
+        "@medusajs/admin-shared",
+        "@medusajs/test-utils",
+        "ts-node"
+      ]
+    },
+    "packages/*": {}
+  }
+}

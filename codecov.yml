@@ -3,9 +3,13 @@
 # Validar mudanças deste arquivo antes do push:
 #   curl -X POST --data-binary @codecov.yml https://codecov.io/validate
 #
-# fixes: o lcov é gerado a partir de plugins/pos-payments, então os SF: saem
-# como src/... — o mapeamento reescreve para o path do repo, sem o qual o
-# money-paths não seleciona os providers e o alvo de 95% não se aplica.
+# Decisão 2026-10-02: status de patch desligado (economia de cotas). Upload e
+# project seguem normais — sem o bloco `project` explícito, os alvos 90/95
+# não ficam garantidos como check de PR.
+#
+# fixes: o lcov é gerado a partir de plugins/pos-payments (SF: src/...), então
+# o mapeamento reescreve para o path do repo, sem o qual o money-paths não
+# seleciona os providers e o alvo de 95% não se aplica.
 fixes:
   - "src/::plugins/pos-payments/src/"
 
@@ -21,9 +25,7 @@ coverage:
         target: 95%
         paths:
           - "plugins/pos-payments/src/providers/"
-    patch:
-      default:
-        target: 90%
+    patch: false
 
 comment:
   layout: "reach, diff, flags, files"

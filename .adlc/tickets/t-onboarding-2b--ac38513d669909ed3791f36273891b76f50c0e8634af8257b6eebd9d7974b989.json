@@ -1,0 +1,28 @@
+{
+  "body": "Plataforma de onboarding no Admin Medusa conforme onboarding.md (spec exaustiva) e plano 7.1: modulo posPayments com 4 tabelas + migration; envelope AES-256-GCM dual-key; maquina de estados da conexao; OAuth MP (state duravel single-use, callback publico, exchange urlencoded, refresh single-flight com rotacao atomica, invalid_grant -> action_required); credencial colada validate-then-activate; stores/POS CRUD (mercado-pago.md 10.1, required 3-4 do checklist oficial); rotas connections/stores/registers/select + health estendido; audit catalogo 8; UI settings/pos-payments + widget. Provider de cobranca continua com credencial de env (cutover e do 1.0.0). Erratas de codigo (service.ts CONSTRAINTS 8 + snippet MP no README) entram em commit separado. Fora de escopo: wizards SumUp/Stone/Cielo (Fase 3), E2E OAuth com navegador humano (aceite 9 assistido pos-merge).",
+  "category": "feature",
+  "edges": [],
+  "id": "T-ONBOARDING-2B",
+  "labels": [
+    "mercadopago",
+    "onboarding",
+    "oauth",
+    "security",
+    "fase-2b"
+  ],
+  "rails": [],
+  "risk": "substantial",
+  "scope": [
+    "plugins/pos-payments/src/modules/**",
+    "plugins/pos-payments/src/services/**",
+    "plugins/pos-payments/src/utils/crypto-envelope.ts",
+    "plugins/pos-payments/src/adapters/mercadopago/**",
+    "plugins/pos-payments/src/api/**",
+    "plugins/pos-payments/src/admin/**",
+    "plugins/pos-payments/README.md",
+    "CHANGELOG.md",
+    ".env.example"
+  ],
+  "spec": ".adlc/specs/fase-2b-onboarding-mp.md",
+  "title": "Fase 2b - plataforma de onboarding do lojista + piloto Mercado Pago (modulo posPayments, envelope AES-256-GCM, OAuth, rotas, stores/POS CRUD, audit, UI admin)"
+}

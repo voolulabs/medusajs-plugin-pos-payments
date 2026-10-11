@@ -3,7 +3,7 @@
 - **Status:** Aceito
 - **Data:** 2026-09-25
 - **Escopo:** `@voolulabs/medusajs-plugin-pos-payments` Fase 1 (provider manual e integração)
-- **Nota de localização:** este ADR vive na raiz do workspace até a Fase 1 criar o repo do plugin;
+- **Nota de localização:** Canônico neste arquivo (`docs/adr/` do repo do plugin); origem histórica no workspace `adr/`.
   então migra para `medusajs-plugin-pos-payments/docs/adr/0001-…`.
 
 ## Contexto
@@ -217,3 +217,6 @@ adapter.
   [cielo.md](../cielo.md)
 - `@medusajs/payment-stripe` (npm 2.21.1) — runtime dep `stripe` ^15.5.0 (evidência do contexto)
 - Política de deps de plugins de rotas: `medusa-plugins/CLAUDE.md` (narisolutions, zero runtime deps)
+
+> Nota 2026-10-01: a regra de re-fetch (payload = pista) governa também o subscriber de
+> reconciliação de refund/cancel originados no terminal (subscriber de reconciliação terminal-originated; ADR 0007 em preparo).

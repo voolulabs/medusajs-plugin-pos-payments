@@ -1,0 +1,12 @@
+{
+  "body": "Nenhuma checagem de seguranca pode depender so do CI ou de revisao manual: shellcheck (analise estatica de bash) e semgrep (SAST, rulesets p/security-audit + p/secrets) entram como estagios novos do scripts/ci-local.sh (pnpm ci:local), com versoes pinadas e verificadas a cada execucao — mesmo padrao do gitleaks: checksum verificado no binario, cache privado (nunca /tmp, CWE-829/354), status do scanner preservado pelo cleanup. O ticket tambem institucionaliza o P5 pelo livro (hollow-test, review-calibration, adlc prosecute com evidencia gravada no manifest assinado) e o P7 lesson-foundry --prompt-only minerando as rodadas T5+T7 em defesas deterministicas em .adlc/lessons/.\n\nAcceptance criteria (cada uma com verify):\n1. MUST shellcheck verificar scripts/*.sh como estagio do ci:local, versao pinada com checksum verificado a cada execucao em cache privado — verify: mutacao proposital com defeito de bash conhecido faz o estagio falhar; arvore sana passa com a versao pinada\n2. MUST semgrep varrer o repo com p/security-audit + p/secrets (metrics off, artefatos de build excluidos), versao pinada — verify: mutacao proposital com padrao CWE conhecido (segredo hardcoded) faz o estagio falhar; arvore sana passa\n3. MUST o status do scanner sobreviver ao cleanup e o resumo refletir a contagem nova de estagios — verify: pnpm ci:local completo verde com contagem certa; com defeito plantado, o script aborta no estagio certo com exit 1\n4. MUST P5 pelo livro gravado no manifest: hollow-test sobre o diff do ticket, review-calibration e adlc prosecute --input passes.json --ticket T8 com chave — verify: adlc gate-manifest show lista os registros do T8 assinados\n5. MUST P7 lesson-foundry --prompt-only produzir defesas deterministicas em .adlc/lessons/ minerando as rodadas T5+T7 — verify: arquivos de licao novos, acionaveis e com proveniencia das rodadas de origem\n6. SHOULD achados pre-existentes do semgrep serem triados (consertados ou justificados) antes do estagio entrar — verify: estagio verde com triagem documentada",
+  "category": "chore",
+  "completed": true,
+  "id": "T8",
+  "scope": [
+    "scripts/**",
+    "package.json",
+    ".adlc/**"
+  ],
+  "title": "SAST local no ci:local (shellcheck + semgrep) e defesas P5/P7 do ciclo ADLC"
+}

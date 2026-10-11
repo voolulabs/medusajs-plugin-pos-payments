@@ -1,0 +1,7 @@
+pnpm-lock.yaml
+**/*.md
+**/*.yaml
+**/.medusa/
+**/dist/
+**/coverage/
+.adlc/

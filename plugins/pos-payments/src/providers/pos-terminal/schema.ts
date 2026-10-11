@@ -13,7 +13,9 @@ const FORBIDDEN_KEYS = new Set(["__proto__", "constructor", "prototype"])
  * Guard no input CRU, antes do zod reconstruir o record (zod silencia chaves
  * de prototype ao reassinar; a fronteira exige REJEITAR, não descartar).
  */
-export function assertSafeSessionKeys(data: Record<string, unknown> | undefined): void {
+export function assertSafeSessionKeys(
+  data: Record<string, unknown> | undefined
+): void {
   const forbidden = Object.keys(data ?? {}).filter((k) => FORBIDDEN_KEYS.has(k))
   if (forbidden.length) {
     throw new MedusaError(
@@ -28,7 +30,10 @@ export const posTerminalSessionSchema = z
   .superRefine((data, ctx) => {
     for (const key of Object.keys(data)) {
       if (FORBIDDEN_KEYS.has(key)) {
-        ctx.addIssue({ code: "custom", message: `chave proibida no data: ${key}` })
+        ctx.addIssue({
+          code: "custom",
+          message: `chave proibida no data: ${key}`,
+        })
       }
     }
   })

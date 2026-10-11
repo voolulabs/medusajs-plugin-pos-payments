@@ -1,5 +1,5 @@
 {
-  "name": "medusa-plugin-pos-payments",
+  "name": "medusajs-plugin-pos-payments",
   "private": true,
   "workspaces": [
     "./plugins/*",
@@ -7,10 +7,22 @@
   ],
   "scripts": {
     "build": "pnpm -r run build",
-    "test": "pnpm -r run test"
+    "ci:local": "bash scripts/ci-local.sh",
+    "test": "pnpm -r run test",
+    "knip": "knip",
+    "lint": "eslint . --max-warnings 0",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "engines": {
     "node": ">=20"
   },
-  "packageManager": "pnpm@9.10.0"
+  "packageManager": "pnpm@9.10.0",
+  "devDependencies": {
+    "@medusajs/eslint-plugin": "^2.19.0",
+    "eslint": "^10.11.0",
+    "knip": "5",
+    "prettier": "^3.9.9",
+    "typescript-eslint": "^8.71.0"
+  }
 }

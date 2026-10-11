@@ -21,7 +21,7 @@ _In-person Brazilian card-terminal (maquininha) payments for Medusa v2._
 
 ## Prerequisites
 
-- [Medusa v2 backend](https://docs.medusajs.com) — `@medusajs/framework` >= 2.15
+- [Medusa v2 backend](https://docs.medusajs.com) — `@medusajs/framework` >= 2.19
 - Node.js >= 20
 
 ---

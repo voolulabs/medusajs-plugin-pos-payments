@@ -1,5 +1,7 @@
-# CI do plugin — gates locais do pipeline da casa + ADLC + opcore.
-# Pino de versões: oficial actions/* em major tag; opcore/adlc pinados por versão exata.
+# CI do plugin — verificação completa do padrão de engenharia: lint, build, testes,
+# typecheck, knip, higiene de código (opcore), segurança + gates do ciclo ADLC
+# (spec-lint, gate-manifest verify).
+# Pino de versões: oficial actions/* em major tag; adlc e opcore pinados por versão exata.
 name: CI
 
 on:
@@ -22,7 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0 # opcore precisa da base history
+          fetch-depth: 0 # história completa (inspeção de repositório e diffs de gate)
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -36,6 +38,14 @@ jobs:
 
       - name: Install (frozen)
         run: pnpm install --frozen-lockfile
+
+      # Falha rápido e barato antes de build/testes: convenções Medusa
+      # (@medusajs/eslint-plugin, preset recommended da comunidade) + estilo
+      # Prettier do monorepo Medusa. O script `lint` já roda --max-warnings 0.
+      - name: Lint (ESLint Medusa + Prettier)
+        run: |
+          pnpm lint
+          pnpm format:check
 
       - name: Build (medusa plugin:build)
         working-directory: plugins/pos-payments
@@ -61,17 +71,32 @@ jobs:
         working-directory: plugins/pos-payments
         run: pnpm exec tsc --noEmit
 
-      - name: ADLC spec gate
-        run: |
-          npm i -g @adlc/cli@1.11.1
-          adlc spec-lint .adlc/specs/fase-1-provider-manual.md
+      - name: Knip — codigo morto (baseline limpa 2026-10-01, gate provado por mutation)
+        run: pnpm knip
 
+      # Higiene de código: sintaxe, complexidade, ciclos e duplicação.
+      # Projeto DISTINTO do ciclo ADLC (vendor the-open-engine ≠ voodootikigod).
       - name: Opcore (fast verify completo)
         env:
           OPCORE_NO_HOOKS: "1"
         run: |
           npm i -g --foreground-scripts @the-open-engine-company/opcore@0.3.3
           opcore check --repo . --all
+
+      # Ciclo ADLC: P1 (spec precisa de critérios de aceite com método de
+      # verificação) + tamper-evidence do ledger append-only de evidência
+      # (.adlc/manifest.jsonl). verify: exit 0 com ledger vazio/ausente;
+      # exit 2 = cadeia quebrada (provado por mutation). --ignore-scripts:
+      # pacote zero-dependência, higiene de supply-chain.
+      - name: ADLC (spec gate + manifest verify)
+        env:
+          # HMAC do ledger: com a chave o verify atesta autoria das entradas;
+          # sem ela prova apenas consistência interna da cadeia.
+          ADLC_MANIFEST_KEY: ${{ secrets.ADLC_MANIFEST_KEY }}
+        run: |
+          npm i -g --ignore-scripts @adlc/cli@1.11.1
+          adlc spec-lint .adlc/specs/fase-1-provider-manual.md
+          adlc gate-manifest verify --json
 
       - name: npm audit (bloqueia high/critical em prod)
         run: pnpm audit --prod --audit-level high
@@ -87,7 +112,15 @@ jobs:
           api-key: ${{ secrets.FOSSA_API_KEY }}
           pinned-cli-version: 3.20.0
 
+      # Cota de terceiro (free: 200 testes Open Source/mês + 100 Code/mês; doc
+      # "what counts as a test": cada manifest no escopo = 1 teste — são 2/run
+      # com a raiz do workspace). Fora dos PRs: o mesmo lockfile é escaneado no
+      # push de develop/main e no cron semanal. Regra de ouro: serviço metered
+      # não é gate em toda a superfície de trigger (decisão 2026-10-02).
       - name: Snyk (SAST + dependências)
+        # Também em pull_request: valida o gate (e o Consistent Ignore) ANTES
+        # da develop — foi o passo que derrubou a develop pós-T-CANCEL-CONTRACT.
+        # PRs deste repo são same-repo, então SNYK_TOKEN está disponível.
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         run: |

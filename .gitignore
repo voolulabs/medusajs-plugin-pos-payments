@@ -25,3 +25,6 @@ coverage/
 .adlc/manifest.d/.lineage
 .adlc/manifest.d/*.lock
 .adlc/manifest.d/*.tmp-*
+
+# segredos locais de sessão (fora do repo)
+.env.local

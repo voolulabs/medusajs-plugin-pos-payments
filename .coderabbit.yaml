@@ -1,28 +1,106 @@
-# Config de review do CodeRabbit (lida pelo GitHub App e pelo CLI).
-# Ref: https://docs.coderabbit.ai/guides/configure-coderabbit-overview
-language: pt-BR
-early_access: false
+# Contexto do produto e convenções da casa para o CodeRabbit.
+# O arquivo na raiz é detectado automaticamente; a config do branch em review
+# vale para a review do próprio PR (docs.coderabbit.ai/guides/configure-coderabbit).
+language: "pt-BR"
+
+knowledge_base:
+  # Descrição do produto (max 2000 chars) — contexto que guia toda review.
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - "CLAUDE.md"
+      - "docs/adr/0001-*.md"
+      - "docs/adr/0002-*.md"
+      - "docs/adr/0005-*.md"
+      - "docs/adr/0006-*.md"
+  learnings:
+    # learnings do repo ficam locais (a org tem outros repos: app de caixa, boilerplate)
+    scope: "local"
 
 reviews:
+  # Auto-review nas bases do fluxo da casa (ADR 0006: develop → staging → main).
+  # O default só dispara em PR com base na branch default (main) — PRs de
+  # feature contra develop/staging ficam sem review ("Auto reviews are disabled
+  # on base/target branches other than the default branch", visível nos PRs
+  # #12/#24 — base staging). base_branches é ADITIVO à default
+  # (docs.coderabbit.ai/reference/configuration): "^main$" é redundante HOJE e
+  # fica por defesa — mantém main coberta se a default do repo mudar.
+  auto_review:
+    enabled: true
+    base_branches:
+      - "^develop$"
+      - "^staging$"
+      - "^main$"
+  # produto de pagamentos — régua alta
   profile: "assertive"
-  high_level_summary: true
   review_status: true
-  poem: false
   path_filters:
     - "!pnpm-lock.yaml"
     - "!.adlc/**"
     - "!.codex/**"
-    - "!.github/**"
   path_instructions:
-    - path: "plugins/pos-payments/src/**"
-      instructions: >-
-        Pagamentos de terminal BR (plano-pos-br.md §6, ADRs 0001/0002/0005).
-        Dinheiro em minor units com MathBN — nunca float. getPaymentStatus nunca
-        lança. Todo método do provider devolve o blob `data` completo (o módulo
-        substitui o estado — devolver {} clobberiza). Credenciais de adquirente
-        nunca no app/terminal. Session `data` validada com zod de
-        @medusajs/framework/zod (rejeitar __proto__/constructor/prototype).
-        Rotas sob /admin/pos-payments/* sem authenticate próprio (auth do core).
+    - path: "**"
+      instructions: |
+        CONTEXTO DO PRODUTO — plugin Medusa v2 de pagamentos de terminal brasileiro
+        (@voolulabs/medusajs-plugin-pos-payments): plataforma compartilhada (provider
+        `pos-terminal`, rotas /admin/pos-payments/*, webhook nativo do core) + um adapter por
+        adquirente (Fase 2 = Mercado Pago Orders API para Point; Fase 3 = SumUp, Stone, Cielo).
+        Produto de PAGAMENTOS: dinheiro em minor units (inteiro), conversões apenas via MathBN
+        em funções puras testadas, BRL explícito, nunca float em dinheiro. ADRs em docs/adr/ são
+        a lei de arquitetura (erratas datadas preservam o histórico; 0001 re-fetch antes de
+        mutar · 0002 estrutura/convenções · 0005 superfícies de API/auth · 0006
+        branching/versionamento/peerDeps). Monorepo pnpm. CI bloqueia: build, testes com
+        cobertura 90/95 (money paths 95%), typecheck strict, knip (código morto), ADLC, opcore
+        (máx. 100 linhas/arquivo), npm audit, FOSSA, Snyk, gitleaks, commitlint. Review em pt-BR.
+    - path: "plugins/pos-payments/src/adapters/**"
+      instructions: |
+        Adapter de adquirente (functional core / imperative shell): mapas de status e construção
+        de payload são FUNÇÕES PURAS (sem fetch/logger); fetch, headers e idempotência moram no
+        shell. Dinheiro: minor units internamente; MP usa string decimal com 2 casas, SumUp
+        inteiro na criação (refund é float em major units), Stone/Cielo inteiro — conversão só
+        em função pura testada. Idempotency key derivada e persistida ANTES do envio; retry
+        reutiliza a mesma chave; montante dentro da chave em capture/refund. Recusa de cartão só
+        é retentável se a classificação do código da adquirente for REVERSÍVEL. Credenciais de
+        adquirente só no backend — flagar qualquer credencial/caminho no app/terminal. Flagar
+        qualquer log de payload cru, token ou dado de portador.
+    - path: "plugins/pos-payments/src/providers/**"
+      instructions: |
+        Provider `pos-terminal` (identifier fixo): implementar todos os métodos abstratos;
+        getPaymentStatus nunca lança (erro degrada para pending); todo método devolve o blob
+        COMPLETO de `data` que deve sobreviver (devolver {} clobberiza estado).
+        getWebhookActionAndData re-consulta a adquirente antes de responder (payload é
+        pista, nunca verdade) e retorna not_supported sem lançar para evento irrelevante. Fato do
+        core: só as ações authorized/captured movem estado; NÃO existe ação refunded — refund
+        originado no terminal é capturado pelo subscriber do plugin via workflow do core.
+    - path: "plugins/pos-payments/src/api/**"
+      instructions: |
+        Rotas sob /admin/pos-payments/*: auth é do core (nunca re-declarar authenticate aqui);
+        se existir middlewares.ts, precisa `export default` — export nomeado silencia a auth no
+        Medusa v2. Zod na fronteira, importado de @medusajs/framework/zod (nunca de zod direto),
+        session `data` como record plano que rejeita __proto__/constructor/prototype. Erro ao
+        cliente genérico (sem detalhe interno); nunca logar authorization, token, HMAC ou PII.
+        Correlação por payment id + external_reference sem PII.
+    - path: "plugins/pos-payments/src/**/__tests__/**"
+      instructions: |
+        Money paths exigem cobertura 95%: cenários de erro, timeout, 5xx e decline explícitos.
+        Mocks de fetch devem registrar as chamadas (assert de payload/headers). Dinheiro sempre
+        em inteiros (minor units) nos testes. Nome do teste descreve comportamento de negócio.
+    - path: "docs/**"
+      instructions: |
+        PT-BR. Erratas DATADAS quando o doc divergir do real, preservando o que estava escrito.
+        Proveniência textual [ok]/[pendente]. ADRs: numeração sequencial (próxima 0007); errata
+        emenda o corpo sem apagar histórico. NUNCA referenciar documentos internos privados
+        (fora do repo) em material público.
+    - path: ".github/workflows/**"
+      instructions: |
+        YAML validado com parser antes do push (nome de step multi-linha já quebrou o workflow).
+        Actions pinadas por SHA. Gates são blocking; segredos só via GitHub secrets — flagar
+        qualquer credencial literal.
+    - path: "plugins/pos-payments/package.json"
+      instructions: |
+        peerDependencies é contrato público do 1.0.0: EXATAMENTE 3 peers (@medusajs/framework,
+        @medusajs/medusa, @medusajs/utils), todos ">=2.15.0 <3" (ADR 0006 §4 / ADR 0002 §4).
+        Flagar se um peer sumir, o range mudar, ou se dependência nova entrar sem justificativa.
 
 chat:
   auto_reply: true

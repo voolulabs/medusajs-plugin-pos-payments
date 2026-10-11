@@ -1,0 +1,15 @@
+{
+  "body": "O ciclo L3 (sandbox, 2026-10-05) expoe desvios entre o plugin e o runtime real (dist 2.19.0) e a doc oficial atual do MP. Evidencia: webhooks reais capturados com telemetria do tunel, banco do backend de dev (payment_session.amount 1000 para R$10; raw_amount {\"value\":\"1000\",\"precision\":20}) e consulta da ordem na API da MP. Branch fix/l3-contract-alignment (PR para develop).\n\nAcceptance criteria (cada uma com verify):\n1. MUST money verbatim: provider trata o amount do core como minor units sem conversao (toMinor -> assertMinorAmount validador); refund compara raw_amount verbatim com o blob — verify: vitest (fixtures {value:'1999',precision:20}, forma real do dist) + mutacao x100 reintroduzida faz 4 testes falharem\n2. MUST HMAC: data.id em lowercase no canonical, com vetores da nota oficial (envelope maiusculo assinado minusculo aceito; assinatura sobre id maiusculo rejeitada) — verify: webhook-signature.spec + helpers dos specs de webhook na formula oficial\n3. MUST subscriber aceita id do provider com e sem pp_ (2.19 prefixa incondicionalmente; 2.21 tolera ambas) — verify: spec do subscriber com as duas formas\n4. SHOULD seed de sessao le o contrato real (data.session_id + context.idempotency_key, identico em 2.19/2.21) com uniao defensiva e comentario sem claims sem suporte — verify: spec service.mp com shape real\n5. MUST gates: pnpm ci:local (14 estagios) verde antes de push — verify: log completo do ci:local\n6. MUST harness e2e/ autorcontido (sem referencias a docs externas ao repo), credenciais so via .env, SQL com variavel ligada — verify: grep no harness + semgrep verde\n7. SHOULD E2E L3 real com entrega do MP: 11/13 (os 2 passos restantes dependem do secret vigente do painel, passo humano fora do escopo de codigo) e ordem real na MP com amount '10.00' para collection de R$10 — verify: log do l3-webhook-e2e + GET /v1/orders na MP\n8. SHOULD CHANGELOG Keep-a-Changelog com entrada Fixed; peer range >=2.19 <3 (faixas com contratos verificados) — verify: arquivo no diff\n\nFora de escopo (proximas ondas): fonte unica de credenciais (options provider vs plugin); job de conciliacao periodica de refund de terminal; tipagem 423/500 de idempotencia; poll captured-first; E2E markAsPaid->refund real.",
+  "category": "fix",
+  "id": "T-01M47CHCQDR2Q2YZG68Q3TWEAQ",
+  "scope": [
+    "plugins/pos-payments/src/**",
+    "plugins/pos-payments/package.json",
+    "e2e/**",
+    "CHANGELOG.md",
+    "knip.json",
+    ".opcore.json",
+    ".adlc/**"
+  ],
+  "title": "fix(mercadopago): contratos do core 2.19 e da doc oficial MP alinhados (money verbatim, HMAC lowercase, provider id no evento)"
+}

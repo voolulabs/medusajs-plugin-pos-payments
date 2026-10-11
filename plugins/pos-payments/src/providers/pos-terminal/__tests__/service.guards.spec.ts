@@ -6,10 +6,9 @@ import PosTerminalProviderService from "../service"
 // tipo do erro assertado além da mensagem — CodeRabbit PR #4).
 // Arquivo separado do service.unit.spec: opcore complexity.max-function-lines
 // (100) — a suíte de contrato ficou acima do teto com os guardas juntos.
-const service = new PosTerminalProviderService(
-  { logger: console } as never,
-  { acquirer: "manual" }
-)
+const service = new PosTerminalProviderService({ logger: console } as never, {
+  acquirer: "manual",
+})
 
 describe("PosTerminalProviderService (guardas)", () => {
   it("capturePayment rejeita cobrança cancelada (UNEXPECTED_STATE)", async () => {
