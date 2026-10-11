@@ -1,6 +1,6 @@
 {
   "name": "@voolulabs/medusajs-plugin-pos-payments",
-  "version": "0.1.0",
+  "version": "0.1.0-rc.1",
   "description": "Medusa v2 plugin for Brazilian terminal (maquininha) payments - shared platform + per-acquirer adapters behind one pos-terminal provider",
   "author": "Voolu Labs",
   "license": "Apache-2.0",
