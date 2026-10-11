@@ -7,7 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-10
+
 ### Added
+
+- Mercado Pago adapter (T1–T5): Orders API client (orders and Point terminals),
+  charge initiation on the terminal (`POST /v1/orders`), adapter over the common
+  provider interface (`pp_pos-terminal_*`) with provider wiring and the poll
+  cadence (10s/40s), admin routes `/admin/pos-payments/charges` (create/get) and
+  `/admin/pos-payments/terminals` (§6.3), the core-native webhook route with HMAC
+  verification (ADR 0007) and terminal-refund reconciliation in the subscriber,
+  and refund/cancel via the Orders API.
+- Mercado Pago adapter: `mapStatus` — pure order-to-charge-state mapping that is
+  `type`-aware (Point vs QR official state machines), with the normative retry
+  taxonomy over transaction `status_detail` (`retryable` / `retry_with_change` /
+  `not_retryable` / `escalate`) and operator-facing pt-BR reason copy. Fail-closed:
+  unknown order status and QR-forbidden states raise `MpContractError`; unknown
+  refusal details degrade conservatively with the raw code preserved.
+- `MP_POINT_TEST_MODE` guard (mercadopago, T6): charging a sandbox terminal
+  (serial prefix `SBX` in the official `{type}__{serial}` format, e.g.
+  `NEWLAND_N950__SBX0000001`) fails closed before any network call unless the
+  option `mpPointTestMode` is explicitly enabled — on the provider
+  (`PosTerminalOptions`) or the plugin `posTerminal` block that feeds the admin
+  routes. Enabling is never silent — a loud warning is logged when the provider resolves (lazy construction)
+  and, on the admin-route path, once per process on first use — and never
+  exempts credentials (presence-gated registration preserved): test mode is
+  never silent in production.
 - Merchant onboarding platform (Fase 2b, onboarding.md §11): `posPayments` module
   (connection/credential/oauth_state/audit_event + migration — deploy runs
   `medusa db:migrate`), AES-256-GCM credential envelope with dual-key rotation,
@@ -17,7 +42,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   credentials, stores/POS CRUD (mercado-pago.md §10.1), per-register terminal binding,
   audit catalog, Admin UI page (`settings/pos-payments`) + topbar widget. Admin UI
   adds `@medusajs/ui` + `@medusajs/icons` as devDependencies (ADR 0004).
-
 - Scheduled reconciliation job `pos-payments-reconcile` (daily at 04:00, first plugin job —
   ADR 0002 errata 2026-10-07): scans captured payments of `pp_pos-terminal_mercadopago` from the
   last 30 days (charge state lives in `payment.data`, written by the provider's capture/refund),
@@ -58,9 +82,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Defensive cancel mapping: any other state echoed by a 2xx cancel answers **202** with the
   state verbatim (a successful cancel over `at_terminal` is async by contract; MP docs
   currently diverge by region and language).
+- `CONSTRAINTS.md` — non-negotiable engineering constraints for payment-path
+  changes (money/units, charge state transitions, `data_version`, additive
+  adapter options, fail-closed, no new declared dependency — runtime, dev,
+  peer or optional — without an ADR).
+- `CLAUDE.md` now documents the full ADLC development cycle (per-phase commands,
+  rails, evidence-ledger discipline), the engineering standards in executable
+  summary form, and the verification gates with explicit tool attribution
+  (opcore = code hygiene, the-open-engine; ADLC = development lifecycle with
+  evidence, voodootikigod) — the repository is self-contained for any
+  contributor.
 
 ### Fixed
 
+- Packaging: subpath exports for plugin modules — the core discovers npm-installed
+  plugin modules via the bare specifier `<plugin>/.medusa/server/src/modules/<name>`
+  (`MEDUSA_PLUGIN_SOURCE_PATH`, verified in the core source), and the generic `./*`
+  export re-prefixed that path, producing a doubled `.medusa/server/src/...` and
+  MODULE_NOT_FOUND on `medusa db:migrate` with the package installed from a registry.
+  Found by the verdaccio rehearsal gate (0.1.0-rc.0 against the real backend);
+  regression-tested in `package-exports.spec.ts`. Providers were not affected
+  (explicit export entry already).
+- Money: provider agora trata o amount do core como minor units verbatim da
+  moeda da região (centavos de BRL no piloto; `assertMinorAmount`) — a conversão
+  anterior multiplicava por 100 e inflava a cobrança na adquirente; refund
+  compara o `raw_amount` verbatim com o blob.
+- Webhook: `data.id` em lowercase no canonical HMAC (nota oficial da doc de
+  notifications) — entregas reais com id maiúsculo eram descartadas.
+- Subscriber: aceita o id do provider com e sem o prefixo `pp_` (o core 2.19
+  prefixa incondicionalmente ao path param; o 2.21 tolera ambas as formas).
 - Idempotency collisions classified as "Idempotency Error" in the official Orders API error
   tables are now typed: `423 resource_locked` and `500 idempotency_validation_failed` raise
   `MpIdempotencyRetryableError` (`retryable: true`, carries `Retry-After` when present).
@@ -76,49 +126,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   cancelada na adquirente.", "state": "action_required"}`. `order_already_canceled`
   re-fetches and answers **200** when the charge is confirmed canceled (idempotent), per the
   refund-resilience precedent (ADR 0001).
-
-## [0.1.0] - 2026-10-05
-
-### Fixed
-
-- Money: provider agora trata o amount do core como minor units verbatim
-  (`assertMinorAmount`) — a conversão anterior multiplicava por 100 e inflava
-  a cobrança na adquirente; refund compara o `raw_amount` verbatim com o blob.
-- Webhook: `data.id` em lowercase no canonical HMAC (nota oficial da doc de
-  notifications) — entregas reais com id maiúsculo eram descartadas.
-- Subscriber: aceita o id do provider com e sem o prefixo `pp_` (o core 2.19
-  prefixa incondicionalmente ao path param; o 2.21 tolera ambas as formas).
-
-### Added
-
-- Mercado Pago adapter: `mapStatus` — pure order-to-charge-state mapping that is
-  `type`-aware (Point vs QR official state machines), with the normative retry
-  taxonomy over transaction `status_detail` (`retryable` / `retry_with_change` /
-  `not_retryable` / `escalate`) and operator-facing pt-BR reason copy. Fail-closed:
-  unknown order status and QR-forbidden states raise `MpContractError`; unknown
-  refusal details degrade conservatively with the raw code preserved.
-- `CONSTRAINTS.md` — non-negotiable engineering constraints for payment-path
-  changes (money/units, charge state transitions, `data_version`, additive
-  adapter options, fail-closed, no new declared dependency — runtime, dev,
-  peer or optional — without an ADR).
-- `CLAUDE.md` now documents the full ADLC development cycle (per-phase commands,
-  rails, evidence-ledger discipline), the engineering standards in executable
-  summary form, and the verification gates with explicit tool attribution
-  (opcore = code hygiene, the-open-engine; ADLC = development lifecycle with
-  evidence, voodootikigod) — the repository is self-contained for any
-  contributor.
-- `MP_POINT_TEST_MODE` guard (mercadopago, T6): charging a sandbox terminal
-  (serial prefix `SBX` in the official `{type}__{serial}` format, e.g.
-  `NEWLAND_N950__SBX0000001`) fails closed before any network call unless the
-  option `mpPointTestMode` is explicitly enabled — on the provider
-  (`PosTerminalOptions`) or the plugin `posTerminal` block that feeds the admin
-  routes. Enabling is never silent — a loud warning is logged when the provider resolves (lazy construction)
-  and, on the admin-route path, once per process on first use — and never
-  exempts credentials (presence-gated registration preserved): test mode is
-  never silent in production.
-
-### Fixed
-
 - Mercado Pago queue-conflict 409: the test contract now uses the real error
   code `already_queued_order_on_terminal` (was `..._for_...`), per the
   2026-10-04 homologation errata. No production behavior change — the
@@ -139,6 +146,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   one PR = one nature (feature vs process artifacts), specs as per-ticket
   historical records, and the Phase 1 spec closed as a historical record
   (acceptance criteria checked against the 0.0.1 deployment evidence).
+- CI: local gate battery — `pnpm ci:local` mirrors the local-runnable stages of
+  ci.yml before every push (14 stages: clean tree + frozen install, lint +
+  format, build, tests with coverage 90/95, strict typecheck, knip, opcore, ADLC
+  spec-lint + manifest verify, npm audit, gitleaks, commitlint, shellcheck,
+  semgrep); secret-backed services stay CI-only (Codecov upload, FOSSA, Snyk).
+  CodeRabbit auto-review enabled on develop and staging.
 
 ## [0.0.1] - 2026-09-30
 

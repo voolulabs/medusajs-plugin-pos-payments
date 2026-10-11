@@ -55,6 +55,13 @@ provider id/options, payload de webhook, faixas de peerDep), Keep-a-Changelog, p
    publish **só roda se a tag bate com o `version` do package.json** e publica com
    `--provenance` a partir da `main`. CHANGELOG em Keep-a-Changelog, gerado dos commits
    convencionais (git-cliff) a partir da `0.1.0`.
+
+   **Errata 2026-10-10 — CHANGELOG curado à mão (git-cliff não adotado):** o git-cliff
+   prometido acima não entrou na `0.1.0`. As release notes da casa são curadas à mão
+   (Keep-a-Changelog, agrupadas por feature — o bullet do adapter T1–T5 cobre 4 PRs;
+   lista derivada de commits seria ruído). O procedimento de bump está no CLAUDE.md
+   ("Release e versionamento"). Revisitar se a cadência de release justificar geração
+   automática.
 4. **SemVer do plugin — contrato de 1.0.0:** durante o piloto privado (Fases 1–2) fica em
    **`0.x`** — breaking pode entrar em MINOR (semver §4) e o backend consome **versão exata**
    (em `0.x`, caret só pega patch). **`1.0.0` congela o contrato público** (gatilho: primeiro
@@ -62,6 +69,11 @@ provider id/options, payload de webhook, faixas de peerDep), Keep-a-Changelog, p
    rotas ou faixa de peerDep = MAJOR. **Âncoras de versão (errata
    2026-09-30):** `0.0.1` = camada base manual; `0.1.0` = primeiro adapter (Mercado Pago) em
    sandbox; `0.2.0` = onboarding/OAuth/Admin (primeiras migrations); um MINOR por adapter na
+
+   **Errata 2026-10-10 — ancoradouro da Fase 2b:** o `0.2.0` reservado acima para
+   onboarding/OAuth/Admin (primeiras migrations) foi consumido pela `0.1.0` — a Fase 2b
+   embarcou junto com o adapter MP na mesma release (o `0.1.0` nunca chegou ao registry;
+   número livre). `0.2.0+` = próximos MINORs (um por adapter da Fase 3 ou pós-1.0.0).
    Fase 3. **Critérios de prontidão do `1.0.0`** (além do gatilho de negócio): (1) ≥1 adapter
    com transação real completa (charge+refund); (2) auditoria do contrato público documentada;
    (3) blob `data` da session com `data_version` e política de migração de blobs antigos;
@@ -95,7 +107,8 @@ provider id/options, payload de webhook, faixas de peerDep), Keep-a-Changelog, p
 ## Consequências
 
 - Zero ferramental novo na Fase 1 além do workflow de publish: mesmos mecanismos do fluxo da
-  casa (publish por tag) + um job commitlint; git-cliff entra na `0.1.0`.
+  casa (publish por tag) + um job commitlint; git-cliff não entrou na `0.1.0`
+  (errata 2026-10-10 na decisão 3 — CHANGELOG curado à mão).
 - Durante `0.x`, atualizar o plugin no backend é ato deliberado (versão exata) — custo aceito
   no piloto, revertido no 1.0 com faixa `^1.x`.
 - A matriz de minors do Medusa no CI é a materialização da faixa de peer: se a matriz crescer

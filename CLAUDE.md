@@ -97,6 +97,25 @@ Fora do fluxo, com motivo: `hollow-test` (mutação só em JS puro — o código
 CLI `coderabbit` (0.8.2, `~/.local/bin/coderabbit`): `coderabbit review --agent --base origin/develop`
 no P5. Requer auth (agentic key ou `coderabbit auth login`).
 
+## Release e versionamento (bump)
+
+Canônico no ADR 0006; este é o operacional. Bump manual: PR `chore(release): vX.Y.Z`
+que sobe a versão em `plugins/pos-payments/package.json` e cura o CHANGELOG à mão
+(Keep-a-Changelog, agrupado por feature — não por commit). A versão publicada é a do
+`package.json` e o guard do workflow exige tag == versão:
+
+- **Prerelease/RC**: `package.json` carrega o sufixo exato (ex. `0.1.0-rc.1`); a tag
+  `v0.1.0-rc.1` publica com dist-tag `next` (derivado do sufixo no workflow). A
+  homologação consome a versão exata.
+- **Estável**: bump derruba o sufixo (`0.1.0`); a tag `v0.1.0` publica com `latest`.
+  Release com RC = dois bumps (rc.N → estável).
+- Promover `develop → staging → main` antes de taguear; tag só nasce na `main`.
+- Stage no npm + approve humano com 2FA (aba Staged Packages). Serviços com secret
+  (Codecov, FOSSA, Snyk) rodam só no CI. Antes de qualquer publish: ensaio no
+  registry local (Verdaccio) contra o backend real — instalar do registry, rodar
+  `medusa db:migrate`, subir o server e provar rotas/E2E; o que quebrar se corrige
+  antes de publicar.
+
 ## Guardas de execução
 
 - Commit/push só com autorização explícita do humano (hook bloqueia mecanicamente).
