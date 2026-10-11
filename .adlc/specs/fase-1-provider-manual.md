@@ -1,5 +1,21 @@
 # Spec: Fase 1 — provider pos-terminal manual
 
+> **Registro histórico** — Fase 1 implementada e embarcada na 0.0.1 (deploy 2026-09-29).
+> Este spec é o registro do ciclo concluído, não documento vivo: o spec ativo de cada ticket
+> novo vive em `.adlc/specs/` (ex.: `fase-2-t1-mp-orders-client.md`). ACs ticados em
+> 2026-10-03 com as verificações do deploy da Fase 1 (E2E `scripts/e2e-pos.mjs` contra o
+> backend 2.19 real + CI verde — 16/16 testes). Isso encerra o "reconfirmar contra o
+> backend 2.19" desta seção.
+
+> **Erratas 2026-10-03 (auditoria spec × código):** (a) o layout da Fase 1 NÃO tem
+> `middlewares.ts` — auth 100% do core, sem arquivo do plugin; (b) `initiatePayment`
+> manual devolve `{ id: randomUUID(), data: {} }`; (c) não há merge de defaults no
+> construtor; (d) o estado do charge vive no `data` da payment session (não em
+> `payment.metadata`) — ver T3/CONSTRAINTS 6; (e) §6.3 é contrato futuro (T4+): hoje
+> só existe `GET /admin/pos-payments/health`.
+> Layout §6.1: `src/types` (contrato público) e `src/admin` (stub exigido pelo build)
+> entram no inventário.
+
 Extraído para os gates ADLC.
 
 ## 6. Fase 1 — Plugin @voolulabs com provider genérico (sem adquirente)
@@ -186,11 +202,11 @@ adquirente (multi-caixa); resolução no charge: register → default global →
 
 ## Acceptance Criteria
 
-- [ ] MUST: os 5 providers habilitados na região Brasil — verify: `node scripts/e2e-pos.mjs` (step providers registrados, via `/store/payment-providers`)
-- [ ] MUST: venda E2E grava `payments[0].provider_id` = id do método, sem queda para `pp_system_default` — verify: `node scripts/e2e-pos.mjs` (step provider_id preservado)
-- [ ] MUST: zero mudanças no app medusa-pos — verify: `git -C ../medusa-pos status` sem mudanças de código de fluxo + review
-- [ ] MUST: rotas sob `/admin/pos-payments/*` sem `authenticate` próprio — verify: `grep -rn "authenticate" src/api` retorna vazio
-- [ ] MUST: provider implementa os 10 métodos abstratos; `getPaymentStatus` nunca lança — verify: `pnpm exec vitest run` (16/16) + `pnpm exec tsc --noEmit` (0)
-- [ ] MUST: nenhum segredo de adquirente fora do backend — verify: revisão manual + gitleaks no CI
-- [ ] SHOULD: `metadata.pos` com ids reais + `guest_customer_email` (guard idempotente) — verify: `curl /admin/store` com Bearer após deploy
-- [ ] SHOULD: sem migrations no v1 (estado em data/metadata JSONB) — verify: `find src -path '*migration*'` vazio
+- [x] MUST: os 5 providers habilitados na região Brasil — verify: `node scripts/e2e-pos.mjs` (step providers registrados, via `/store/payment-providers`)
+- [x] MUST: venda E2E grava `payments[0].provider_id` = id do método, sem queda para `pp_system_default` — verify: `node scripts/e2e-pos.mjs` (step provider_id preservado)
+- [x] MUST: zero mudanças no app medusa-pos — verify: `git -C ../medusa-pos status` sem mudanças de código de fluxo + review
+- [x] MUST: rotas sob `/admin/pos-payments/*` sem `authenticate` próprio — verify: `grep -rn "authenticate" src/api` retorna vazio
+- [x] MUST: provider implementa os 10 métodos abstratos; `getPaymentStatus` nunca lança — verify: `pnpm exec vitest run` (16/16) + `pnpm exec tsc --noEmit` (0)
+- [x] MUST: nenhum segredo de adquirente fora do backend — verify: revisão manual + gitleaks no CI
+- [x] SHOULD: `metadata.pos` com ids reais + `guest_customer_email` (guard idempotente) — verify: `curl /admin/store` com Bearer após deploy
+- [x] SHOULD: sem migrations no v1 (estado em data/metadata JSONB) — verify: `find src -path '*migration*'` vazio

@@ -1,6 +1,6 @@
 {
   "name": "@voolulabs/medusajs-plugin-pos-payments",
-  "version": "0.0.1",
+  "version": "0.1.0-rc.1",
   "description": "Medusa v2 plugin for Brazilian terminal (maquininha) payments - shared platform + per-acquirer adapters behind one pos-terminal provider",
   "author": "Voolu Labs",
   "license": "Apache-2.0",
@@ -12,6 +12,7 @@
   },
   "exports": {
     ".": {
+      "types": "./.medusa/server/src/index.d.ts",
       "require": "./.medusa/server/src/index.js",
       "default": "./.medusa/server/src/index.js"
     },
@@ -22,6 +23,7 @@
       "require": "./.medusa/server/src/admin/index.js",
       "default": "./.medusa/server/src/admin/index.js"
     },
+    "./.medusa/server/src/modules/*": "./.medusa/server/src/modules/*/index.js",
     "./*": "./.medusa/server/src/*.js"
   },
   "repository": {
@@ -40,32 +42,36 @@
     "voolulabs"
   ],
   "scripts": {
-    "build": "medusa plugin:build",
+    "build": "medusa plugin:build && tsc --declaration --emitDeclarationOnly --outDir .medusa/server",
     "dev": "medusa plugin:develop",
-    "prepublishOnly": "medusa plugin:build",
+    "prepublishOnly": "medusa plugin:build && tsc --declaration --emitDeclarationOnly --outDir .medusa/server",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
-    "@medusajs/framework": ">=2.15.0 <3",
-    "@medusajs/medusa": ">=2.15.0 <3",
-    "@medusajs/utils": ">=2.15.0 <3"
+    "@medusajs/framework": ">=2.19.0 <3",
+    "@medusajs/medusa": ">=2.19.0 <3",
+    "@medusajs/utils": ">=2.19.0 <3"
   },
   "engines": {
     "node": ">=20"
   },
   "devDependencies": {
+    "@medusajs/admin-sdk": "^2.21.2",
     "@medusajs/admin-shared": "^2.19.0",
     "@medusajs/cli": "^2.19.0",
     "@medusajs/framework": "^2.19.0",
+    "@medusajs/icons": "^2.21.2",
     "@medusajs/medusa": "^2.19.0",
     "@medusajs/test-utils": "^2.19.0",
-    "@medusajs/types": "^2.19.0",
+    "@medusajs/ui": "^4.2.6",
     "@medusajs/utils": "^2.19.0",
     "@swc/core": "^1.10.0",
     "@types/node": "^22.0.0",
+    "@types/react": "^19.3.0",
     "@vitest/coverage-v8": "2.1.9",
+    "react-router-dom": "^7.18.4",
     "ts-node": "^10.9.2",
     "typescript": "^5.6.2",
     "vitest": "^2.0.0"

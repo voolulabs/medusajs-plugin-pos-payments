@@ -1,0 +1,25 @@
+{
+  "body": "Mapear o contrato real de cancelamento da Orders API do Mercado Pago Point na rota POST /admin/pos-payments/charges/:id/cancel. Evidencia oficial [ok]: created cancela 200 sincrono; at_terminal cancela COM o header x-allow-cancelable-status: at_terminal e responde 202 ASSINCRONO (ordem permanece at_terminal, status_detail da transacao vira cancellation_requested, webhook confirma; o terminal pode priorizar a cobranca e nao completar o cancelamento); action_required/expired/processed sao 409 cannot_cancel_order; order_already_canceled e 409 de idempotencia. Contratos do core 2.19 verificados no dist [ok]: cancelPayment do modulo e orfa (rota do plugin e a unica superficie, MC1); o subscriber do core descarta canceled (MC2); o error-handler do framework SOBRESCREVE a mensagem de MedusaError CONFLICT (MC4) — a rota responde diretamente em res.\n\nDefeitos atuais (develop 6fa18d0): (1) MpApiError 409 cai em UNEXPECTED_STATE via src/api/admin/pos-payments/errors.ts -> HTTP 500; (2) a rota responde 200 no cenario 202 sem sinal de cancelamento solicitado; (3) header condicional em src/adapters/mercadopago/orders.ts:15 (deve ser incondicional, ignorado pela MP em created); (4) keyFor em src/providers/pos-terminal/service-mp-ops.ts fora do formato documentado (doc: UUID v4 ou string aleatoria) — trocar por uuidv5(chargeId:purpose, namespace fixo do plugin) sem dependencia nova (node:crypto SHA-1); (5) subscriber trata charge canceled (origem terminal) com WARN — deve ser noop com log info + errata no ADR 0007.\n\nAcceptance criteria:\n1. Rota responde 200 com view state canceled quando MP cancela ordem created. Verificar: cd plugins/pos-payments && pnpm vitest run \"src/api/admin/pos-payments/charges/[id]/cancel/__tests__/route.cancel.spec.ts\"\n2. Rota responde 202 com cancelRequested: true no corpo quando MP responde 202 (at_terminal + cancellation_requested). Verificar: mesma suíte do AC1.\n3. Rota responde 409 com {code:\"cannot_cancel_order\", message, state} para estados nao cancelaveis — nunca 500, mensagem preservada. Verificar: mesma suíte do AC1.\n4. MP 409 order_already_canceled -> re-fetch: canceled -> 200 idempotente; estado divergente -> 409 com estado real. Verificar: mesma suíte do AC1.\n5. cancelOrder envia x-allow-cancelable-status: at_terminal incondicionalmente. Verificar: pnpm vitest run src/adapters/mercadopago/__tests__/ (spec do client/cancelOrder).\n6. keyFor devolve UUID v5 canonico deterministico por (chargeId, purpose). Verificar: pnpm vitest run src/providers/pos-terminal/__tests__/ (spec do keyFor).\n7. mapOrderStatus marca cancelRequested: true quando ordem at_terminal com transacao cancellation_requested (poll incluido). Verificar: pnpm vitest run src/adapters/mercadopago/__tests__/ (spec de status).\n8. Subscriber: charge canceled -> log info, nenhum refund criado. Verificar: pnpm vitest run src/subscribers/__tests__/pos-payments-webhook.spec.ts.\n9. Cobertura >=90% global / >=95% money paths. Verificar: pnpm test:coverage.\n10. Gate do 409 semantico provado por mutacao: trocar o literal cannot_cancel_order no corpo -> suite do AC1 falha. Verificar: registro da mutacao na descricao do PR.\n11. README (tabela 200/202/409), CHANGELOG [Unreleased] (Fixed/Added), errata ADR 0007. Verificar: inspecao do diff.\n\nNao-escopo: polling Point v2 de cancellation_requested, audit events, OTel, canceled_at no payment Medusa, app medusa-pos, adapters Fase 3. Spec completa: .adlc/specs/cancel-contrato-ponto-mp.md.",
+  "category": "contract",
+  "completed": true,
+  "edges": [],
+  "id": "T-CANCEL-CONTRACT",
+  "labels": [
+    "mercadopago",
+    "money-path",
+    "cancel"
+  ],
+  "rails": [],
+  "risk": "substantial",
+  "scope": [
+    "plugins/pos-payments/src/api/admin/pos-payments/**",
+    "plugins/pos-payments/src/adapters/mercadopago/**",
+    "plugins/pos-payments/src/providers/pos-terminal/**",
+    "plugins/pos-payments/src/subscribers/**",
+    "plugins/pos-payments/README.md",
+    "CHANGELOG.md",
+    "docs/adr/0007-webhook-rota-nativa-validacao-no-provider.md"
+  ],
+  "spec": ".adlc/specs/cancel-contrato-ponto-mp.md",
+  "title": "Contrato de cancelamento MP Point por estado na rota (200/202/409 semantico, uuidv5, cancelRequested)"
+}

@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "targets": {
+    "exclude": ["e2e"]
+  }
+}

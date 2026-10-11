@@ -83,9 +83,17 @@ As convenções abaixo foram verificadas em quatro fontes complementares (2026-0
    `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes` + `noImplicitOverride`
    (código de dinheiro — [engenharia.md](../engenharia.md) §2). **Errata (2026-09-30):
    `verbatimModuleSyntax` não entra** — proibido em output CommonJS (TS1287/TS1295, confirmado
-   no build real); a disciplina de type-only imports fica no Biome (`style.useImportType`).
-   Lint/format: **Biome único** (`recommended` + `noDefaultExport: "error"`, overrides para os
-   default exports exigidos pelo Medusa).
+   no build real). **Errata (2026-10-02) — lint/format: de "Biome único" para ESLint +
+   `@medusajs/eslint-plugin` (preset `recommended`) + Prettier** (PR #33): o plugin oficial
+   de lint do Medusa (v2.16+) codifica convenções do framework que o Biome não cobre (rotas,
+   middlewares, subscribers, workflows, imports de pacotes internos deprecados) e é o padrão
+   da comunidade (docs resources/lint, medusa-starter-plugin); regras de export por tipo de
+   arquivo (subscriber/route/jobs) substituem o `noDefaultExport` + overrides do Biome, que
+   brigava com os default exports exigidos pelo Medusa. A disciplina de type-only imports
+   migra para `consistent-type-imports` (typescript-eslint); acréscimo da casa:
+   `no-floating-promises` type-aware em `plugins/pos-payments/src` (código de dinheiro).
+   Formatação com o `.prettierrc` do monorepo medusajs/medusa (`semi: false`, aspas duplas).
+   Gate na CI logo após o install, `--max-warnings 0`, provado por mutação.
 9. **Testes:** vitest unitário para adapters e utilitários, specs colocation
    `__tests__/*.unit.spec.ts`; **HTTP das adquirentes mockado com MSW** interceptando o serviço
    real (padrão paystack — inclui teste de assinatura de webhook e de retry); um suite
@@ -214,3 +222,43 @@ As convenções abaixo foram verificadas em quatro fontes complementares (2026-0
 - `medusa-plugins/plugins/medusa-plugin-pos` (local) — `src/api/middlewares.ts`,
   `src/utils/plugin-options.ts`, `tsconfig.json`, `scripts/fix-aliases.js`
 - `store-b2c-boilerplate/backend/medusa-config.js` — registro duplo (plugin + provider) do meilisearch
+
+## Erratas 2026-10-01 (review adversarial do workspace)
+
+1. **peerDependencies**: o pacote 0.0.1 declara **três** peers — `@medusajs/framework`,
+   `@medusajs/medusa` e **`@medusajs/utils`**, todos `>=2.15 <3` (helpers importados em runtime,
+   ex. `ContainerRegistrationKeys` em `src/utils/plugin-options.ts`). Superfície semver do
+   contrato de 1.0.0 (ADR 0006 §4) — este §4 fica atualizado por esta errata.
+2. **Adapters = diretório por adquirente** (`src/adapters/<acquirer>/{client,types,validation,…}`
+   + `types.ts` da interface comum em `src/adapters/`), functional core/imperative shell
+   (engenharia.md §1.4–§1.5), budget ≤100 linhas/arquivo (opcore) — não "um arquivo por
+   adquirente" (§5).
+3. **Subscribers entram na Fase 2** para reconciliação de refund/cancel originados no terminal
+   (`refundPaymentWorkflow`, nunca serviço do módulo — event-bus.md §2.3; ADR 0007 em preparo).
+   O §9 passa a valer a workflows/subscribers de negócio próprios; jobs/links continuam fora.
+   *(Nota 2026-10-07: a parte de "jobs fora" foi revogada pela errata 6 de 2026-10-07 —
+   `src/jobs/` existe desde a Onda 2; links continuam fora.)*
+4. **`middlewares.ts` é condicional** (nasce com o primeiro validador/rate-limit próprio —
+   ADR 0005); na Fase 1 o arquivo não existe e a auth é toda do core.
+5. **`module`/`moduleResolution: node16`** no tsconfig (necessário para resolver o exports map
+   do `@medusajs/framework` no typecheck); `verbatimModuleSyntax` continua fora
+   (errata 2026-09-30).
+
+## Erratas 2026-10-07 (Onda 2 — conciliação periódica)
+
+6. **Jobs entram** — a errata 3 de 2026-10-01 deixava "jobs/links fora"; o job agendado
+   `pos-payments-reconcile` (`src/jobs/`, cron diário — A7 do diagnóstico de 2026-10-05)
+   elimina a aresta "refund de terminal perdido após esgotar o event bus" DENTRO da
+   janela de 30 dias do job (refund na MP vale até 90 dias para cartão físico — o
+   resíduo 31–90d segue dependendo do reenvio do MP; janela configurável fica para o
+   backlog) e reutiliza a decisão do subscriber (ADR 0007). Links continuam fora. Acesso a
+   dados no job: **graph sobre a entidade `payment`** — é o blob `payment.data` que
+   recebe as transições do charge gravadas por capture/refund do provider (a sessão
+   fica com o blob do authorize — blob do initiate + `authorized_at` — e nunca
+   recebe as transições do charge), com filtro de COLUNA `provider_id` + janela
+   temporal em `captured_at` (OperatorMap, types 2.19); o recorte JSONB
+   (`data.state`) é em memória (filtros padrão não consultam JSONB — regra §Reuso). Nota de verificação:
+   `payment_session` É alias válido do graph no 2.19 (o `defineJoinerConfig` auto-carrega
+   os models e computa aliases; prova de produção: `processPaymentWorkflow` do core-flows
+   consulta `entity: "payment_session"`) — uma versão anterior desta errata afirmava o
+   contrário, com verificação incompleta do joiner-config.

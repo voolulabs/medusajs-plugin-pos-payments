@@ -1,0 +1,11 @@
+{
+  "body": "Nenhum erro pode ser descoberto pelo CI: todo gate do ci.yml roda localmente ANTES do push, na mesma ordem. scripts/ci-local.sh (pnpm ci:local) replica o job verify: install --frozen-lockfile, lint (eslint --max-warnings 0) + prettier --check, build (medusa plugin:build), testes com thresholds de coverage (90/95), tsc --noEmit, knip, opcore check --repo . --all, spec-lint da spec da fase 1 + gate-manifest verify COM a chave (ADLC_MANIFEST_KEY), npm audit --prod --audit-level high, gitleaks (binario pinado v8.30.1 com checksum, cache em /tmp) e commitlint --from <merge-base com origin/develop> --to HEAD (CLI @21 pinada como no CI). Stage 0 exige working tree limpo (CI constroi codigo commitado). Servicos externos com secret (Codecov, FOSSA, Snyk) sao SKIP explicito com motivo — paridade declarada, nao silenciosa.\n\nAcceptance criteria (cada uma com verify):\n1. MUST replicar na ordem: install, lint+format, build, test:coverage, typecheck, knip, opcore, spec-lint+manifest verify, audit, gitleaks, commitlint — verify: rodar pnpm ci:local na propria branch do ticket (dogfood) com saida por estagio e exit 0\n2. MUST falhar rapido (set -euo pipefail) e apontar o estagio que quebrou — verify: mutacao proposital quebrando um estagio e o script abortando com o nome dele\n3. MUST recusar working tree suja (stage 0) — verify: rodar com arquivo nao commitado e ver exit 1\n4. MUST skip declarado para Codecov/FOSSA/Snyk (servicos com secret), sem falhar o script — verify: saida lista os skips com motivo\n5. MUST commitlint usar --from merge-base(origin/develop, HEAD) por padrao, override via CI_LOCAL_BASE — verify: commitlint roda na branch do ticket sem baixar o CI\n6. MUST lint/format/knip/opcore/tsc verdes e cobertura >=90/95 na branch — verify: pnpm ci:local completo verde\n7. SHOULD gitleaks com checksum verificado como no CI e binario cacheado — verify: 2a execucao nao baixa de novo",
+  "category": "chore",
+  "completed": true,
+  "id": "T7",
+  "scope": [
+    "scripts/**",
+    "package.json"
+  ],
+  "title": "Paridade de CI em dev: script ci:local que replica os gates do CI antes do push"
+}

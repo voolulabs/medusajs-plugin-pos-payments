@@ -1,4 +1,4 @@
-import { ContainerRegistrationKeys } from "@medusajs/utils"
+import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import type { MedusaRequest } from "@medusajs/framework"
 import type { PosPaymentsPluginOptions } from "../types"
 
@@ -21,5 +21,9 @@ export function getPluginOptions(scope: Scope): PosPaymentsPluginOptions {
       (typeof p === "string" ? p : p.resolve) === PLUGIN_NAME
   )
 
-  return (typeof entry === "object" ? (entry.options as PosPaymentsPluginOptions) : undefined) ?? {}
+  return (
+    (typeof entry === "object"
+      ? (entry.options as PosPaymentsPluginOptions)
+      : undefined) ?? {}
+  )
 }

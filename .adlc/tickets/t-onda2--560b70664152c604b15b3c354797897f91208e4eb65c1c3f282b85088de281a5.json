@@ -1,0 +1,12 @@
+{
+  "completed": true,
+  "id": "T-ONDA2",
+  "labels": [
+    "mercadopago",
+    "money-path",
+    "onda-2"
+  ],
+  "risk": "substantial",
+  "spec": ".adlc/specs/onda-2-conciliacao-idempotencia-guard-poll.md",
+  "title": "Onda 2 — conciliacao periodica, idempotencia retentavel, guard de options e poll da captura (mercadopago)"
+}

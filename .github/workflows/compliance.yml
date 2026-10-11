@@ -30,6 +30,9 @@ jobs:
         with:
           oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TAILSCALE_OAUTH_CLIENT_SECRET }}
+          # exigido pelo action com OAuth: sem `tags` o check "Auth Info Empty"
+          # falha ("OAuth identity empty") mesmo com os secrets preenchidos
+          tags: tag:ci
 
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
@@ -41,10 +44,24 @@ jobs:
           git clone --depth 1 --branch probod/v0.299.0 https://github.com/getprobo/probo.git /tmp/probo-src
           cd /tmp/probo-src && go build -o /usr/local/bin/prb ./cmd/prb
 
+      - name: Diagnóstico de rede (falha rápido, sinal claro)
+        env:
+          PROBO_HOST: ${{ secrets.PROBO_HOST }}
+        run: |
+          IP="${PROBO_HOST#http://}"; IP="${IP%%:*}"
+          tailscale status --peers | grep -v offline | head -8 || true
+          tailscale ping --c 2 "$IP" || true
+          curl -sS -o /dev/null -w "GET http://${PROBO_HOST#http://}/ -> %{http_code}\n" --max-time 15 "http://${PROBO_HOST#http://}/" || true
+
       - name: Smoke — conectividade e autenticação na instância
         env:
           PROBO_HOST: ${{ secrets.PROBO_HOST }}
           PROBO_TOKEN: ${{ secrets.PROBO_TOKEN }}
+          PROBO_ORG: ${{ secrets.PROBO_ORG }}
+        # auth via env (PROBO_HOST/PROBO_TOKEN) é o mecanismo não-interativo do
+        # prb (config.go DefaultHost); o "not logged in" do auth status refere-se
+        # só ao config file. framework list sem --json (não existe na 0.299.0) e
+        # com --org: no caminho por env não há organização default.
         run: |
           prb auth status --no-interactive --no-color
-          prb framework list --json --no-interactive --no-color
+          prb framework list --org "$PROBO_ORG" --limit 5 --no-interactive --no-color

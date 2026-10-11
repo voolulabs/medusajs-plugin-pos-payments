@@ -1,0 +1,19 @@
+# Política Snyk — exclusões auditadas (doc: docs.snyk.io, CLI ignore).
+# O bloco `exclude` (--file-path) é o ÚNICO mecanismo de arquivo suportado
+# para Snyk Code no .snyk (ignore por finding é `snyk ignore create` com
+# Consistent Ignores, que depende de org/token).
+#
+# uuid5.ts EXISTE para implementar UUID v5, cuja RFC 4122 §4.3 EXIGE SHA-1
+# (createHash("sha1")) — o finding [LOW] "Password Hash With Insufficient
+# Computational Effort" é falso positivo por definição. O arquivo não toca
+# credencial (namespace fixo + nome da charge); cobrimos por testes próprios
+# (uuid5.spec.ts) e mutação (golden values de implementação independente).
+# Além do uuid5.ts, o exclude REPLICA as exclusões padrão do Snyk Code que o
+# bloco substitui: fixtures de teste usam valores-fixture deliberadamente não
+# credenciais (CONSTRAINTS: segredo nenhum no repo) e o proxy HTTP do e2e é
+# arnés local por desenho (engenharia.md — hostname/porto de teste).
+exclude:
+  "global":
+    - "plugins/pos-payments/src/utils/uuid5.ts"
+    - "**/__tests__/**"
+    - "e2e/**"
