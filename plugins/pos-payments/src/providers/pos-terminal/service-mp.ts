@@ -69,14 +69,32 @@ export async function mpInitiate(
     data?: Record<string, unknown>
     context?: Record<string, unknown>
   },
-  logger: StructuredLogger
+  logger: StructuredLogger,
+  opts?: { fallbackTerminalId?: string }
 ): Promise<{ id: string; data: Record<string, unknown> }> {
   const seed = sessionSeed(input)
   const key = keyFor(seed, "charge")
+  // Binding do terminal (onboarding §5.4): fail-closed primeiro — quando a
+  // sessão do caixa não trouxer terminal_id em data/context (contrato v1 não
+  // envia data; o app envia só o id verbatim), o provider cai no binding
+  // gravado pela rota `terminals/:id/select` na metadata.pos da loja. Sem
+  // binding, o erro original suba (nunca silência). O filtro de acquirer
+  // acontece no service (o binding só entra se for da mesma adquirente).
+  let terminalId: string
+  try {
+    terminalId = assertTerminalId(input)
+  } catch (error) {
+    const fallback = opts?.fallbackTerminalId
+    if (!fallback) throw error
+    terminalId = fallback
+    logger.info(
+      `mercadopago: terminal do binding da loja aplicado (a sessão não enviou data/context)`
+    )
+  }
   const createInput: CreateChargeInput = {
     amountMinor: assertMinorAmount(input.amount),
     externalReference: assertExternalReference(seed),
-    terminalId: assertTerminalId(input),
+    terminalId,
   }
   const { chargeId, view } = await adapter.createCharge(createInput, key)
   // Blob COMPLETO: preserva o data da sessão, exceto as chaves reservadas do

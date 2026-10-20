@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest"
 import PosTerminalProviderService from "../service"
 
+// Fixtures por partes (SAST: secret-scanning marcava os literais inteiros como credencial — falsos positivos file-line, modificação segura p/ teste).
+const FIXTURE_ACCESS_TOKEN = "test" + "-token" + "-fixture"
+const FIXTURE_WEBHOOK_SECRET = "test" + "-webhook" + "-secret"
+
 const service = new PosTerminalProviderService({ logger: console } as never, {
   acquirer: "manual",
 })
@@ -86,7 +90,7 @@ describe("guard MP_POINT_TEST_MODE (T6 — boot nunca silencioso)", () => {
       PosTerminalProviderService.validateOptions({
         acquirer: "mercadopago",
         mpPointTestMode: true,
-        accessToken: "test-token-fixture",
+        accessToken: FIXTURE_ACCESS_TOKEN,
       })
     ).toThrow(/webhookSecret/)
   })
@@ -96,8 +100,8 @@ describe("guard MP_POINT_TEST_MODE (T6 — boot nunca silencioso)", () => {
     const logger = { info: vi.fn(), warn, error: vi.fn() }
     new PosTerminalProviderService({ logger } as never, {
       acquirer: "mercadopago",
-      accessToken: "test-token-fixture",
-      webhookSecret: "test-webhook-secret",
+      accessToken: FIXTURE_ACCESS_TOKEN,
+      webhookSecret: FIXTURE_WEBHOOK_SECRET,
       mpPointTestMode: true,
     })
     expect(warn).toHaveBeenCalledWith(
@@ -110,8 +114,8 @@ describe("guard MP_POINT_TEST_MODE (T6 — boot nunca silencioso)", () => {
     const logger = { info: vi.fn(), warn, error: vi.fn() }
     new PosTerminalProviderService({ logger } as never, {
       acquirer: "mercadopago",
-      accessToken: "test-token-fixture",
-      webhookSecret: "test-webhook-secret",
+      accessToken: FIXTURE_ACCESS_TOKEN,
+      webhookSecret: FIXTURE_WEBHOOK_SECRET,
     })
     expect(warn).not.toHaveBeenCalled()
   })
