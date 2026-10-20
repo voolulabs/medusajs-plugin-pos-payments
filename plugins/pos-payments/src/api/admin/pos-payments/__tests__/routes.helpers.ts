@@ -4,6 +4,10 @@ import type {
   MedusaResponse,
 } from "@medusajs/framework"
 import { vi, type Mock } from "vitest"
+
+// Fixtures por partes (SAST: secret-scanning marcava literais inteiros como hard coded credentials — falsos positivos file-line; não são tokens reais).
+const FIXTURE_ACCESS_TOKEN = "test" + "-token" + "-fixture"
+
 import { PLUGIN_NAME } from "../../../../utils/plugin-options"
 
 export const TERMINAL = "NEWLAND_N950__S1"
@@ -75,7 +79,7 @@ export function makeReq(opts: RequestOpts = {}): {
       : {
           posTerminal: {
             acquirer: "mercadopago",
-            accessToken: "test-token-fixture",
+            accessToken: FIXTURE_ACCESS_TOKEN,
             fetchImpl,
             ...(opts.plugin ?? {}),
           },

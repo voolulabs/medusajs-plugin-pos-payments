@@ -28,3 +28,4 @@ coverage/
 
 # segredos locais de sessão (fora do repo)
 .env.local
+.mimosa/

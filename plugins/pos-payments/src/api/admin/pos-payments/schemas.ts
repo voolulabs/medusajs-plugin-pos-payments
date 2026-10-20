@@ -57,5 +57,21 @@ export function assertChargeId(id: string | undefined): string {
       "pos-payments: id do charge ausente no path"
     )
   }
+  return assertPathId(id, "charge")
+}
+
+/**
+ * Guard SSRF (SAST 2026-10-14): ids de path/query atravessam para o fetch da
+ * adquirente — valida alfabeto fechado [A-Za-z0-9_-] (ids MP e POS são
+ * alfanuméricos) ANTES de qualquer interpolação de URL. O destino é fixo
+ * (api.mercadopago.com); o que o guard impede é o path virar host/esquema.
+ */
+export function assertPathId(id: string, label: string): string {
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) {
+    throw new MedusaError(
+      MedusaError.Types.INVALID_DATA,
+      `pos-payments: ${label} fora do alfabeto permitido (guard SSRF)`
+    )
+  }
   return id
 }

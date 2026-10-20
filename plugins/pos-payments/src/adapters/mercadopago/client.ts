@@ -13,6 +13,7 @@ import {
 } from "./validation"
 import { parseOrder } from "./schema"
 import { buildCreateOrderBody } from "./payload"
+import { assertSafePath } from "./path-guard"
 
 const MP_API_BASE_URL = "https://api.mercadopago.com"
 const DEFAULT_TIMEOUT_MS = 15_000
@@ -38,6 +39,16 @@ export class MercadoPagoOrdersClient {
     this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS
   }
 
+  /**
+   * Guard SSRF (SAST 2026-10-14): o `path` é montado com parâmetros que
+   * atravessam rotas admin (:id, query) — a validação vive em path-guard.ts
+   * (compartilhada com o OnboardingHttpClient); o destino é sempre a MP
+   * (baseUrl constante do plugin).
+   */
+  private assertSafePath(path: string): void {
+    assertSafePath(path)
+  }
+
   /** @internal transporte — prefira os métodos/funções de operação (validam e parseiam). */
   async request(
     method: string,
@@ -48,6 +59,7 @@ export class MercadoPagoOrdersClient {
       extraHeaders?: Record<string, string>
     } = {}
   ): Promise<unknown> {
+    this.assertSafePath(path)
     const response = await this.fetchImpl(`${this.baseUrl}${path}`, {
       method,
       headers: {

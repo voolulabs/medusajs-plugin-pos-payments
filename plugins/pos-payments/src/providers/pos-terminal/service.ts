@@ -1,5 +1,9 @@
 import { randomUUID } from "node:crypto"
-import { AbstractPaymentProvider, MedusaError } from "@medusajs/framework/utils"
+import {
+  AbstractPaymentProvider,
+  MedusaError,
+  Modules,
+} from "@medusajs/framework/utils"
 import type { Logger, WebhookActionResult } from "@medusajs/framework/types"
 import type {
   AuthorizePaymentInput,
@@ -65,6 +69,39 @@ export type PosTerminalOptions = {
 
 type SessionData = Record<string, unknown>
 
+type StoreMetaLike = {
+  pos?: { payments?: { terminal?: { id?: string; acquirer?: string } } }
+}
+
+/** Puro: extrai o terminal do binding da loja, filtrando por acquirer
+ * (onboarding §5.4). O filtro de adquirente é de CORRETUDE: binding de
+ * outra adquirente nunca cobre o provider. */
+function terminalFromStoreMeta(
+  stores: Array<{ metadata?: unknown }> | undefined,
+  acquirer: string
+): string | undefined {
+  const meta = (stores?.[0]?.metadata ?? {}) as StoreMetaLike
+  const terminal = meta.pos?.payments?.terminal
+  if (!terminal?.id) return undefined
+  if (terminal.acquirer && terminal.acquirer !== acquirer) return undefined
+  return terminal.id
+}
+
+/** Puro: o terminal que a PRÓPRIA sessão informa (data/context) — fast-path
+ * (CodeRabbit Major 204): sessão informada não espera a consulta da store. */
+function informedTerminalId(
+  data: SessionData | undefined,
+  context: SessionData | undefined
+): string | undefined {
+  const fromData = data?.terminal_id
+  if (typeof fromData === "string" && fromData.length > 0) return fromData
+  const fromContext = context?.terminal_id
+  if (typeof fromContext === "string" && fromContext.length > 0) {
+    return fromContext
+  }
+  return undefined
+}
+
 /**
  * Mapa puro do `data` para o status (opcore: complexity.max-nesting). Erro de
  * leitura degrada para pending — getPaymentStatus nunca lança.
@@ -93,6 +130,9 @@ class PosTerminalProviderService extends AbstractPaymentProvider<PosTerminalOpti
   protected logger_: Logger
   protected options_: PosTerminalOptions
   protected adapter_: PosPaymentsAdapter | undefined
+  /** Container no momento da construção — fonte do binding de terminal
+   * (onboarding §5.4) quando a sessão do caixa não envia data/context. */
+  protected container_: unknown
 
   static override validateOptions(options: PosTerminalOptions): void {
     // Fase 1: só "manual". A lista expande quando os adapters de adquirente
@@ -124,6 +164,7 @@ class PosTerminalProviderService extends AbstractPaymentProvider<PosTerminalOpti
 
   constructor(container: InjectedDependencies, options: PosTerminalOptions) {
     super(container, options)
+    this.container_ = container
     this.logger_ = (container.logger ?? console) as Logger
     this.options_ = options
     // A6 (W2.1): as rotas admin e o subscriber leem o bloco `posTerminal` das
@@ -171,6 +212,36 @@ class PosTerminalProviderService extends AbstractPaymentProvider<PosTerminalOpti
     })
   }
 
+  /** Fast-path do CodeRabbit (Major 204): a sessão que JÁ informa o terminal
+   * (data.terminal_id / context.terminal_id) não espera a consulta da store —
+   * o fallback só consulta quando faz falta. A promise da store também é
+   * guardada por timeout (a consulta nunca deixa a sessão pendente além do
+   * orçamento de 15s do caixa). */
+  private static async resolveFallbackTerminal(
+    container: unknown,
+    acquirer: string,
+    logger: Logger
+  ): Promise<string | undefined> {
+    const storeModule = (container as Record<string, unknown>)?.[
+      Modules.STORE
+    ] as
+      | {
+          listStores?: (
+            selectors?: unknown,
+            config?: unknown
+          ) => Promise<Array<{ metadata?: unknown }>>
+        }
+      | undefined
+    if (!storeModule?.listStores) {
+      logger.debug?.(
+        "pos-terminal: módulo store indisponível — fallback de terminal inoperante (dependencies: [Modules.STORE] no host?)"
+      )
+      return undefined
+    }
+    const stores = await storeModule.listStores({}, { take: 1 })
+    return terminalFromStoreMeta(stores, acquirer)
+  }
+
   override async initiatePayment(
     input: InitiatePaymentInput
   ): Promise<InitiatePaymentOutput> {
@@ -178,7 +249,50 @@ class PosTerminalProviderService extends AbstractPaymentProvider<PosTerminalOpti
     // é replayado pelo cliente: valida na fronteira antes.
     assertSafeSessionKeys(input.data as Record<string, unknown> | undefined)
     // O id do provider é opaco e público (nunca carregar dado sensível).
-    if (this.adapter_) return mpInitiate(this.adapter_, input, this.logger_)
+    if (this.adapter_) {
+      // Binding do terminal (onboarding §5.4): quando a sessão do caixa não
+      // informa terminal_id, o provider usa a máquina gravada pela rota
+      // `terminals/:id/select` na metadata.pos — o operador nunca escolhe
+      // maquininha por venda (user story). Fail-closed: sem binding, o erro
+      // original do assert terminal vive (nunca silência).
+      const informed = informedTerminalId(
+        input.data as Record<string, unknown> | undefined,
+        input.context as Record<string, unknown> | undefined
+      )
+      if (informed !== undefined) {
+        return mpInitiate(this.adapter_, input, this.logger_)
+      }
+      let fallbackTerminalId: string | undefined
+      let storeTimeout: NodeJS.Timeout | undefined
+      try {
+        // Corrida contra o timeout (15s do caixa): a store que não responde
+        // não segura a sessão pendente além do orçamento; o timer é limpo
+        // para não segurar o event loop depois da corrida decidida.
+        fallbackTerminalId = await Promise.race([
+          PosTerminalProviderService.resolveFallbackTerminal(
+            this.container_,
+            this.adapter_.acquirer,
+            this.logger_
+          ),
+          new Promise<undefined>((resolve) => {
+            storeTimeout = setTimeout(() => resolve(undefined), 15_000)
+          }),
+        ])
+      } catch (error) {
+        // Degradação AUDÍVEL (revisão adversarial): sem acesso às stores não
+        // há binding — o mpInitiate falha com o erro original (fail-closed),
+        // mas o diagnóstico de produção precisa do motivo no log.
+        this.logger_.debug?.(
+          `pos-terminal: binding de terminal indisponível para o fallback (${String(error).slice(0, 120)})`
+        )
+      } finally {
+        if (storeTimeout) clearTimeout(storeTimeout)
+      }
+      return mpInitiate(this.adapter_, input, this.logger_, {
+        // exactOptionalPropertyTypes: a chave só entra quando o binding existe.
+        ...(fallbackTerminalId !== undefined ? { fallbackTerminalId } : {}),
+      })
+    }
     return { id: randomUUID(), data: {} }
   }
 

@@ -3,7 +3,7 @@ import type {
   MedusaResponse,
 } from "@medusajs/framework"
 import { adapterForRequest } from "../adapter-scope"
-import { parseOrThrow, terminalsQuerySchema } from "../schemas"
+import { assertPathId, parseOrThrow, terminalsQuerySchema } from "../schemas"
 import { toMedusaError } from "../errors"
 
 /**
@@ -16,6 +16,10 @@ export async function GET(
   res: MedusaResponse
 ) {
   const query = parseOrThrow(terminalsQuerySchema, req.query)
+  // Guard SSRF em segunda camada (o zod já restringe; o assert explicita o
+  // ponto de sanitização antes do fetch da adquirente).
+  if (query.storeId !== undefined) assertPathId(query.storeId, "store_id")
+  if (query.posId !== undefined) assertPathId(query.posId, "pos_id")
   const adapter = adapterForRequest(req)
   try {
     const page = await adapter.listTerminals({
